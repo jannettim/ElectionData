@@ -1,8 +1,13 @@
-
+"""
+Pulls all files from https://dataverse.harvard.edu/dataset.xhtml?persistentId=hdl:1902.1/21919
+"""
 import requests
 import yaml
 from zipfile import ZipFile
 from io import BytesIO
+import os
+from time import sleep
+import random
 
 token = yaml.safe_load(open("tokens.yml"))["token"]
 
@@ -35,6 +40,12 @@ def read_ids(filename):
 
 def download_files(ids, path_to_extract):
 
-    file = requests.get("https://dataverse.harvard.edu/api/access/datafiles/{0}?key={0}".format(ids, token), stream=True)
+    file = requests.get("https://dataverse.harvard.edu/api/access/datafiles/{0}?key={1}".format(ids, token), stream=True)
     z = ZipFile(BytesIO(file.content))
     z.extractall(path_to_extract)
+
+def get_metadata(id):
+
+    meta = requests.get("http://dataverse.harvard.edu/api/meta/datafile/{0}?key={1}".format(id, token))
+    with open(os.path.join("data\\harvard_dataverse\\metadata", str(id) + ".xml"), "w") as wf:
+        wf.write(meta.text)

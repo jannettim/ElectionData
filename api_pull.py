@@ -6,8 +6,6 @@ import yaml
 from zipfile import ZipFile
 from io import BytesIO
 import os
-from time import sleep
-import random
 
 token = yaml.safe_load(open("tokens.yml"))["token"]
 

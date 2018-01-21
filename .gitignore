@@ -2,4 +2,7 @@
 data/
 .idea/
 *.csv
+*.db
+*.txt
+*.pyc
 *.log

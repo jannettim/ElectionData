@@ -11,8 +11,8 @@ def download_data(url, year):
     chrome_options = webdriver.ChromeOptions()
 
     chrome_options.add_experimental_option("prefs", {
-        "download.default_directory": "D:\\GitRepos\\ElectionData_LSDAPP\\get_election_data\\Pennsylvania\\data\\raw_downloads\\Allegheny"})
-    driver = webdriver.Chrome(chrome_options=chrome_options)
+        "download.default_directory": "/home/matt/GitRepos/ElectionData/get_election_data/Pennsylvania/data/raw_downloads/Allegheny"})
+    driver = webdriver.Chrome("/usr/lib/chromium-browser/chromedriver", chrome_options=chrome_options)
 
     driver.get(url)
 
@@ -28,7 +28,8 @@ def download_data(url, year):
     election_results.click()
 
 
+# download_data("http://www.alleghenycounty.us/elections/election-results.aspx", "")
 
-parser = general_parser.PrecinctParser("D:\\GitRepos\\ElectionData_LSDAPP\\get_election_data\\Pennsylvania\\data\\raw_downloads\Allegheny\\2015 Official General Election Precinct.pdf")
+parser = general_parser.PrecinctParser("/home/matt/Downloads/2015 Official General Election Precinct.pdf")
 precinct_text = parser.pdf_to_txt()
 parser.precinct_parser(precinct_text)

@@ -41,29 +41,39 @@ class PrecinctParser:
             precinct_line = re.search(r"(\d{4,})\s(\w+(\s+|\d+)*)+?", pre)
             precinct_id = precinct_line.group(1)
             precinct_name = precinct_line.group(2)
-            elections_list.append((precinct_id, precinct_name, re.split(r"\s+(?=(\s\w+)+(\s*\n|\s+)Vote for\s+\d)", pre)))
+
+            elections_list.append((precinct_id, precinct_name, re.split(r"\s\s+(?=(((-*\w)+\s)+)(\s+|\n)Vote for\s+\d)", pre)))
+            # "(\s)(?:.*?(\s+|\n)Vote for\s+\d)"
 
         count = 0
         for e in elections_list:
             temp_dict_outer = {}
             for elec in e[2]:
                 temp_dict = {}
-                # print(elec)
                 try:
-                    elec_name = re.search(r"((\s\w+)+)(\s*\n|\s+)Vote for\s+\d", elec).group(1)
-                    votes = re.findall(r"(((\w+\s)+)|(\w+\-\w+))(\(\w+/*\w*\))*(?:\.*\s+\.)+\s+(\d+)\s*(\d*\.*\d*)", elec)
-                    print(votes)
-                    # for v in votes:
-                    #     temp_dict.update({v[0]: float(v[1])})
+                    elec_name = re.search(r"(.*)(\s*\n|\s+)Vote for\s+\d", elec).group(1)
+                    print(elec_name)
+                    "((\s\w+|\s\w+(\d+-)*\d+)+)(\s*\n|\s+)Vote for\s+\d"
+                    # print(elec_name)
+                    votes = re.findall(r"(.*)(?:\.\s+)+(\d+)\s*(\d+\.*\d*|\.\d+|$)", elec)
+
+                    # "(.*)(?:\.\s+)+(\d+)\s*((\d+(\.\d+)*|\.\d+)|$)"
+                    for v in votes:
+                        print(re.search(r"(\s+)(\w.*(\(\w+\))?)(\s*\.\s+)", v[0]).group(2))
+                        print(float(v[1]))
+                        try:
+                            print(float(v[2]))
+                        except ValueError:
+                            print(None)
+                        temp_dict.update({v[0]: float(v[1])})
                     temp_dict_outer.update({elec_name.strip(): temp_dict})
                 except AttributeError:
                     if re.search(r"TOTAL", elec):
-
                         votes = re.findall(r"(\w*\s*\w+)(?:\s+\-\s+\w+)(?:\.*\s+\.)+\s*(\d+\.*\d*)", elec)
                         for v in votes:
                             temp_dict.update({v[0]: float(v[1])})
                         temp_dict_outer.update({"Total Votes": temp_dict})
-                print(temp_dict_outer)
+                # print(temp_dict_outer)
             break
 
                 # count += 1

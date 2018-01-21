@@ -1,8 +1,32 @@
 import pandas as pd
 import os
 import re
+import sqlite3
 from lxml import etree
 import requests
+
+
+def create_database(db_path):
+
+    cnxn = sqlite3.connect(db_path)
+    cn = cnxn.cursor()
+
+    cn.execute("DROP TABLE IF EXISTS elections")
+    cn.execute("DROP TABLE IF EXISTS results")
+    cnxn.commit()
+
+    cn.execute("CREATE TABLE elections (Election_Id INTEGER PRIMARY KEY, "
+               "State TEXT, District INTEGER, Year INTEGER)")
+
+    cn.execute("CREATE TABLE results (Election_Id INTEGER, Party TEXT, Votes INTEGER, "
+               "Incumbent INTEGER, PRIMARY KEY(Election_Id, Party), "
+               "FOREIGN KEY(Election_Id) REFERENCES elections(Election_Id))")
+
+    cnxn.commit()
+
+    cn.close()
+    cnxn.close()
+
 
 def import_ispsr(directory):
 
@@ -27,7 +51,44 @@ def import_ispsr(directory):
 
     df = pd.merge(df, state_lookup, left_on="State_Code", right_on="Code", how="left")
 
-    return df
+    df.reset_index(inplace=True)
+
+    df.rename(columns={"index": "Election_Id"}, inplace=True)
+
+    df["Election_Id"] = df["Election_Id"] + 1
+
+    elections = df[["Election_Id", "State", "District", "Year"]]
+
+    dem_votes = df[["Election_Id", "Democratic Votes"]]
+    dem_votes["Incumbent"] = 0
+    dem_votes.loc[df["Election_Id"].isin(df.loc[((df["Incumbent"] == 1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
+    dem_votes.rename(columns={"Democratic Votes": "Votes"}, inplace=True)
+    dem_votes["Party"] = "Democrat"
+
+    repub_votes = df[["Election_Id", "Republican Votes"]]
+    repub_votes["Incumbent"] = 0
+    repub_votes.loc[df["Election_Id"].isin(df.loc[((df["Incumbent"] == -1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
+    repub_votes.rename(columns={"Republican Votes": "Votes"}, inplace=True)
+    repub_votes["Party"] = "Republican"
+
+    # print(dem_votes)
+    # print(repub_votes)
+
+    results = dem_votes.append(repub_votes)
+
+    results.sort_values("Election_Id", inplace=True)
+    results = results.loc[~results["Election_Id"].isin(results.loc[results["Votes"] == -9]["Election_Id"])]
+
+    elections = elections.loc[~elections["Election_Id"].isin(results.loc[results["Votes"] == -9]["Election_Id"])]
+
+    # print(os.path.join(directory, "DS0049", os.listdir(os.path.join(directory, "DS0049"))[0]))
+    # exceptions = pd.read_csv(os.path.join(directory, "DS0049", os.listdir(os.path.join(directory, "DS0049"))[0]),
+    #                          sep="\s+", skiprows=1,
+    #                          names=["Year", "State", "District", "Democratic", "Republican", "Minor", "Total Votes"])
+    # print(exceptions)
+    #
+    return elections, results
+
 
 def clean_cq_data(datafile, sheet):
 
@@ -37,15 +98,40 @@ def clean_cq_data(datafile, sheet):
                        skip_footer=2)
     df.loc[df.District == "At Large", "District"] = 98
 
-    state_name = pd.read_excel("data\\StateAbbr_Name_Lookup.xlsx", "Sheet1")
+    state_name = pd.read_excel("data/StateAbbr_Name_Lookup.xlsx", "Sheet1")
     df = pd.merge(df, state_name, how="left", on=["State_Abbr"])
 
     df.reset_index(inplace=True)
     df.rename(columns={"index": "Election_Id"}, inplace=True)
 
-    print(df)
+    df["Election_Id"] = df["Election_Id"] + 1
 
-    1/0
+    elections = df[["Election_Id", "State", "District", "Year"]]
+
+    # dem_votes = df[["Election_Id", "Dem_Votes"]]
+    # dem_votes["Incumbent"] = 0
+    # dem_votes.loc[df["Election_Id"].isin(
+    #     df.loc[((df["Incumbent"] == 1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
+    # dem_votes.rename(columns={"Democratic Votes": "Votes"}, inplace=True)
+    # dem_votes["Party"] = "Democrat"
+    #
+    # repub_votes = df[["Election_Id", "Republican Votes"]]
+    # repub_votes["Incumbent"] = 0
+    # repub_votes.loc[df["Election_Id"].isin(
+    #     df.loc[((df["Incumbent"] == -1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
+    # repub_votes.rename(columns={"Republican Votes": "Votes"}, inplace=True)
+    # repub_votes["Party"] = "Republican"
+
+    # print(dem_votes)
+    # print(repub_votes)
+
+    # results = dem_votes.append(repub_votes)
+
+    # results.sort_values("Election_Id", inplace=True)
+    #
+    # print(df)
+    #
+    # 1/0
 
     # print(df.Dem_Votes + df.Rep_Votes + df.Minor_Votes)
     df["Total_Votes"] = df[["Dem_Votes", "Rep_Votes", "Minor_Votes"]].sum(axis=1)
@@ -56,7 +142,59 @@ def clean_cq_data(datafile, sheet):
     print(df[["Losing Wasted Votes", "Winning Wasted Votes"]])
 
 
+def import_princeton(datafile):
+
+    df = pd.read_csv(datafile)
+
+    df["Republican Votes"] = df["Republican Votes"].str.replace(",", "")
+    df["Democratic Votes"] = df["Democratic Votes"].str.replace(",", "")
+
+    df.reset_index(inplace=True)
+
+    df.rename(columns={"index": "Election_Id"}, inplace=True)
+
+    df["Election_Id"] += 1
+
+    elections = df[["Election_Id", "State", "District", "Year"]]
+
+    dem_votes = df[["Election_Id", "Democratic Votes"]]
+    dem_votes["Party"] = "Democrat"
+    dem_votes.rename(columns={"Democratic Votes": "Votes"}, inplace=True)
+
+    rep_votes = df[["Election_Id", "Republican Votes"]]
+    rep_votes["Party"] = "Republican"
+    rep_votes.rename(columns={"Republican Votes": "Votes"}, inplace=True)
+
+    results = dem_votes.append(rep_votes)
+    results.sort_values(by="Election_Id", inplace=True)
+
+    return elections, results
+
+
+def insert_princeton(elections_df, results_df):
+
+    cnxn = sqlite3.connect("house_elections.db")
+    cn = cnxn.cursor()
+
+    cn.executemany("INSERT INTO elections (Election_Id, State, District, Year) "
+                   "VALUES (?, ?, ?, ?)", elections_df.values.tolist())
+
+    cnxn.commit()
+
+    cn.executemany("INSERT INTO results (Election_Id, Votes, Party) "
+                   "VALUES (?, ?, ?)", results_df.values.tolist())
+
+    cnxn.commit()
+
+    cn.close()
+    cnxn.close()
+    # cn.execute()
+
 if __name__ == "__main__":
 
-    # icpsr = import_ispsr("data\\ICPSR_06311")
-    clean_cq_data(datafile="data\\CQ Press\\House Elections\\US House Elections By Year By District.xlsx", sheet="Export")
+    create_database("house_elections.db")
+    # icpsr = import_ispsr("/home/matt/GitRepos/ElectionData/data/ICPSR_06311")
+    # print(icpsr)
+    # clean_cq_data(datafile="data/CQ Press/House Elections/US House Elections By Year By District.xlsx", sheet="Export")
+    elections, results = import_princeton("/home/matt/GitRepos/ElectionData/data/Princeton/election_data.csv")
+    insert_princeton(elections, results)

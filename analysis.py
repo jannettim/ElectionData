@@ -104,8 +104,6 @@ def get_efficiency_gap(election_type):
     results = results.loc[results["Votes_loss"] != 0]
     results["total_votes"] = results["Votes_win"] + results["Votes_loss"]
 
-    #total_votes = results[["State", "Year", "total_votes"]].groupby(["State", "Year"], as_index=False).sum()
-
     wasted_votes_loss = results.groupby(["State", "Year", "Party_loss"], as_index=False)["Votes_loss"].sum()
     wasted_votes_wins = results.groupby(["State", "Year", "Party_win"], as_index=False)["wasted_wins"].sum()
 
@@ -124,21 +122,23 @@ def get_efficiency_gap(election_type):
     wasted_df_dem = wasted_df.loc[wasted_df["Party"] == "Democrat"]
     wasted_df_rep = wasted_df.loc[wasted_df["Party"] == "Republican"]
 
-    efficency_df = pd.merge(wasted_df_dem[["State", "Year", "wasted_votes"]],
+    efficiency_df = pd.merge(wasted_df_dem[["State", "Year", "wasted_votes"]],
                             wasted_df_rep[["State", "Year", "wasted_votes"]],
                             on=["State", "Year"], suffixes=["_dem", "_rep"])
 
     total_votes = results.groupby(["State", "Year"], as_index=False)["TotalVotes"].sum()
 
-    efficency_df = pd.merge(efficency_df, total_votes, on=["State", "Year"])
-    efficency_df["gap"] = (efficency_df["wasted_votes_dem"] - efficency_df["wasted_votes_rep"]) / efficency_df[
+    efficiency_df = pd.merge(efficiency_df, total_votes, on=["State", "Year"])
+    efficiency_df["gap"] = (efficiency_df["wasted_votes_dem"] - efficiency_df["wasted_votes_rep"]) / efficiency_df[
         "TotalVotes"]
 
-    efficency_df = efficency_df.loc[(efficency_df.Year >= 2000) & (efficency_df.Year <= 2010)]
+    # efficiency_df = efficiency_df.loc[(efficiency_df.Year >= 2000) & (efficiency_df.Year <= 2010)]
+    #
+    # efficiency_df = efficiency_df.groupby(["State"], as_index=False)["gap"].mean()
 
-    efficency_df = efficency_df.groupby(["State"], as_index=False)["gap"].mean()
+    # print(efficiency_df)
 
-    return efficency_df
+    return efficiency_df
 
 
 def simulate_elections(win, loss):
@@ -156,7 +156,7 @@ if __name__ == '__main__':
     # print(win)
     # loss = get_loser()
     # compare_wl()
-    efficency_df = get_efficiency_gap("state")
-    efficency_df.to_csv("test.csv")
+    efficiency_gap = get_efficiency_gap("federal")
+    efficiency_gap.to_csv("test.csv")
     os.system("xdg-open test.csv")
     # simulate_elections(win, loss)

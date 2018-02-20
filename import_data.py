@@ -111,39 +111,32 @@ def clean_cq_data(datafile, sheet):
     df["Election_Id"] = df["Election_Id"] + 1
 
     elections = df[["Election_Id", "State", "District", "Year"]]
+    elections["Federal"] = 1
 
-    # dem_votes = df[["Election_Id", "Dem_Votes"]]
-    # dem_votes["Incumbent"] = 0
-    # dem_votes.loc[df["Election_Id"].isin(
-    #     df.loc[((df["Incumbent"] == 1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
-    # dem_votes.rename(columns={"Democratic Votes": "Votes"}, inplace=True)
-    # dem_votes["Party"] = "Democrat"
-    #
-    # repub_votes = df[["Election_Id", "Republican Votes"]]
-    # repub_votes["Incumbent"] = 0
-    # repub_votes.loc[df["Election_Id"].isin(
-    #     df.loc[((df["Incumbent"] == -1) | (df["Incumbent"] == 3))]["Election_Id"].tolist()), "Incumbent"] = 1
-    # repub_votes.rename(columns={"Republican Votes": "Votes"}, inplace=True)
-    # repub_votes["Party"] = "Republican"
+    dem_votes = df[["Election_Id", "Dem_Votes"]]
+    dem_votes.rename(columns={"Dem_Votes": "Votes"}, inplace=True)
+    dem_votes["Party"] = "Democrat"
+    dem_votes["Incumbent"] = nan
 
-    # print(dem_votes)
-    # print(repub_votes)
+    rep_votes = df[["Election_Id", "Rep_Votes"]]
+    rep_votes.rename(columns={"Rep_Votes": "Votes"}, inplace=True)
+    rep_votes["Party"] = "Republican"
+    rep_votes["Incumbent"] = nan
 
-    # results = dem_votes.append(repub_votes)
+    other_votes = df[["Election_Id", "Minor_Votes"]]
+    other_votes.rename(columns={"Minor_Votes": "Votes"}, inplace=True)
+    other_votes["Party"] = "Other"
+    other_votes["Incumbent"] = nan
 
-    # results.sort_values("Election_Id", inplace=True)
-    #
-    # print(df)
-    #
-    # 1/0
+    rep_votes["Votes"].fillna(0, inplace=True)
+    dem_votes["Votes"].fillna(0, inplace=True)
+    other_votes["Votes"].fillna(0, inplace=True)
 
-    # print(df.Dem_Votes + df.Rep_Votes + df.Minor_Votes)
-    df["Total_Votes"] = df[["Dem_Votes", "Rep_Votes", "Minor_Votes"]].sum(axis=1)
-    df["Losing Wasted Votes"] = df["Total_Votes"] - df[["Dem_Votes", "Rep_Votes", "Minor_Votes"]].max(axis=1)
+    results = dem_votes.append(rep_votes)
+    results = results.append(other_votes)
+    results.sort_values(by="Election_Id", inplace=True)
 
-    df["Winning Wasted Votes"] = df[["Dem_Votes", "Rep_Votes", "Minor_Votes"]].max(axis=1) + df["Total_Votes"]/2
-
-    print(df[["Losing Wasted Votes", "Winning Wasted Votes"]])
+    return elections, results
 
 
 def import_princeton(datafile):
@@ -252,7 +245,7 @@ if __name__ == "__main__":
     create_database("house_elections.db")
     # icpsr = import_ispsr("/home/matt/GitRepos/ElectionData/data/ICPSR_06311")
     # print(icpsr)
-    # clean_cq_data(datafile="data/CQ Press/House Elections/US House Elections By Year By District.xlsx", sheet="Export")
+    # elections, results = clean_cq_data(datafile="data/CQ Press/House Elections/US House Elections By Year By District.xlsx", sheet="Export")
     elections, results = import_princeton("/home/matt/GitRepos/ElectionData/data/Princeton/election_data.csv")
     insert_princeton(elections, results)
     state_elections, state_results = import_princeton_state(["/home/matt/GitRepos/ElectionData/data/Princeton/assembly_cleaned_data_1972_2010.csv",

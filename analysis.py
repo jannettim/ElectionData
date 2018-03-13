@@ -52,18 +52,14 @@ def get_total_votes(election_type):
 
     if election_type:
 
-        cn.execute("SELECT e.election_id, SUM(r.votes) "
+        cn.execute("SELECT e.election_id, e.total_votes "
                    "FROM elections e "
-                   "INNER JOIN results r ON r.election_id=e.election_id "
-                   "WHERE e.Federal=? "
-                   "GROUP BY e.election_id", (election_type,))
+                   "WHERE e.Federal=? ", (election_type,))
 
     else:
 
-        cn.execute("SELECT e.election_id, SUM(r.votes) "
-                   "FROM elections e "
-                   "INNER JOIN results r ON r.election_id=e.election_id "
-                   "GROUP BY e.election_id")
+        cn.execute("SELECT e.election_id, e.total_votes "
+                   "FROM elections e ")
 
     return cn.fetchall()
 
@@ -132,12 +128,6 @@ def get_efficiency_gap(election_type):
     efficiency_df["gap"] = (efficiency_df["wasted_votes_dem"] - efficiency_df["wasted_votes_rep"]) / efficiency_df[
         "TotalVotes"]
 
-    # efficiency_df = efficiency_df.loc[(efficiency_df.Year >= 2000) & (efficiency_df.Year <= 2010)]
-    #
-    # efficiency_df = efficiency_df.groupby(["State"], as_index=False)["gap"].mean()
-
-    # print(efficiency_df)
-
     return efficiency_df
 
 
@@ -149,14 +139,7 @@ def simulate_elections(win, loss):
 
 
 if __name__ == '__main__':
-    # print(get_dems())
-    # print(get_rep())
-    # print(get_other())
-    # win = get_winner()
-    # print(win)
-    # loss = get_loser()
-    # compare_wl()
-    efficiency_gap = get_efficiency_gap("federal")
+
+    efficiency_gap = get_efficiency_gap("state")
     efficiency_gap.to_csv("test.csv")
     os.system("xdg-open test.csv")
-    # simulate_elections(win, loss)

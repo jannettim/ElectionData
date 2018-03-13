@@ -26,10 +26,15 @@ for i, r in starts.iterrows():
     gaps.loc[(gaps.State == r["State"]), "t"] = gaps.Year-r["Year"]
 
 
+gaps.loc[gaps.index, "e"] = 0
 gaps.loc[gaps.t == 0, "e"] = 1
+gaps.loc[gaps.index, "emax"] = 0
 gaps.loc[gaps.t >= 6, "emax"] = 1
+gaps.loc[gaps.index, "emin"] = 0
 gaps.loc[gaps.t <= -6, "emin"] = 1
 
+
+print(gaps)
 1/0
 # gaps["independent_commission"].fillna(0, inplace=True)
 

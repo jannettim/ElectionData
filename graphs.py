@@ -23,7 +23,7 @@ state_year_gaps = ColumnDataSource(data=dict(state=gaps["State"].tolist(),
                                              gap=gaps["gap"].tolist()))#,
                                              #state_abbr=gaps["State_Abbr"].tolist()))
 
-# p = figure(plot_width=1500, plot_height=1500)
+# p = figure(plot_width=1500, plot_height=1500)a
 p = figure()
 
 # p.scatter(x="year", y="gap", source=state_year_gaps)
@@ -32,10 +32,46 @@ p = figure()
 # show(p)
 
 
-p.line(x="year", y="gap", source=gap_year)
+
+
+######ARIZONA PARALLEL TRENDS#########
+gaps_1 = gaps.loc[gaps.State == "Texas"]
+
+gaps_1.sort_values(by="Year", inplace=True)
+gaps_2 = gaps.loc[gaps.State == "Arizona"]
+gaps_2.sort_values(by="Year", inplace=True)
+
+state1_year_gaps = ColumnDataSource(data=dict(state=gaps_1["State"].tolist(),
+                                             year=gaps_1["Year"].tolist(),
+                                             gap=gaps_1["gap"].tolist()))
+state2_year_gaps = ColumnDataSource(data=dict(state=gaps_2["State"].tolist(),
+                                             year=gaps_2["Year"].tolist(),
+                                             gap=gaps_2["gap"].tolist()))
+p.line(x="year", y="gap", source=state1_year_gaps, color="blue")
+p.line(x="year", y="gap", source=state2_year_gaps, color="red")
 
 show(p)
 
-gaps = gaps.loc[(gaps["Year"] >= 2000) & (gaps["Year"] <= 2010)]
-gaps.groupby("State", as_index=False).mean().to_csv('test.csv')
-os.system("xdg-open test.csv")
+
+
+######WASHINGTON PARALLEL TRENDS#########
+gaps_1 = gaps.loc[gaps.State == "Oregon"]
+
+gaps_1.sort_values(by="Year", inplace=True)
+gaps_2 = gaps.loc[gaps.State == "Washington"]
+gaps_2.sort_values(by="Year", inplace=True)
+
+state1_year_gaps = ColumnDataSource(data=dict(state=gaps_1["State"].tolist(),
+                                             year=gaps_1["Year"].tolist(),
+                                             gap=gaps_1["gap"].tolist()))
+state2_year_gaps = ColumnDataSource(data=dict(state=gaps_2["State"].tolist(),
+                                             year=gaps_2["Year"].tolist(),
+                                             gap=gaps_2["gap"].tolist()))
+p.line(x="year", y="gap", source=state1_year_gaps, color="blue")
+p.line(x="year", y="gap", source=state2_year_gaps, color="red")
+
+show(p)
+
+# gaps = gaps.loc[(gaps["Year"] >= 2000) & (gaps["Year"] <= 2010)]
+# gaps.groupby("State", as_index=False).mean().to_csv('test.csv')
+# os.system("xdg-open test.csv")

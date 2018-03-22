@@ -42,9 +42,9 @@ for i in list(set(urban.Year.tolist())):
 urban = urban[["State", "Year", "Per_Urban"]]
 
 
-# anes = pd.read_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/anes_timeseries_cdf_rawdata.txt", sep="|", na_values=" ")
+anes = pd.read_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/anes_timeseries_cdf_rawdata.txt", sep="|", na_values=[" "])
 # anes.to_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/rel_anes.csv")
-anes = pd.read_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/rel_anes.csv")
+# anes = pd.read_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/rel_anes.csv")
 # anes["VCF0170d"] = anes["VCF0170d"].str.replace("^\s+$", nan)
 anes = anes[["VCF0004", "VCF0901a", "VCF0301", "VCF0703", "VCF0305"]]
 anes.dropna(inplace=True)
@@ -70,9 +70,38 @@ anes_final["FIPS"] = anes_final["FIPS"].astype(str).str.zfill(2)
 anes_final = anes_final.merge(fips, on=["FIPS"], how="left")
 anes_final = anes_final[["Year", "State", "Partisan", "Voted", "Registered", "Registered_Turnout"]]
 
-print(anes_final["Year"].value_counts())
+anes_2016 = pd.read_csv("/home/matt/GitRepos/ElectionData/data/anes_timeseries_cdf/anes_timeseries_2016/anes_timeseries_2016_rawdata.txt", sep="|", na_values=[" "])
+anes_2016 = anes_2016[["V161156", "V161010d", "V162034", "V162022", "V161011"]]
+anes_2016["Year"] = 2016
+anes_2016.rename(columns={"V161010d": "FIPS", "V162034": "Voting_Info", "V161156": "partisanship_info",
+                          "V162022": "Registered_Post", "V161011": "Registered_Pre"}, inplace=True)
+anes_2016["FIPS"] =anes_2016["FIPS"].astype(str).str.zfill(2)
+anes_2016.loc[anes_2016.Voting_Info != 1, "Voted"] = 0
+anes_2016.loc[anes_2016.Voting_Info == 1, "Voted"] = 1
+anes_2016.dropna(inplace=True)
 
-#V163001a
+anes_2016.loc[anes_2016["partisanship_info"] != 2, "Partisan"] = 0
+anes_2016.loc[anes_2016["partisanship_info"] == 2, "Partisan"] = 1
+
+anes_2016.loc[((anes_2016["Registered_Pre"] != 1) & (anes_2016["Registered_Pre"] != 2)) &
+              ((anes_2016["Registered_Post"] != 1) & (anes_2016["Registered_Post"] != 2)), "Registered"] = 0
+
+anes_2016.loc[((anes_2016["Registered_Pre"] == 1) | (anes_2016["Registered_Pre"] == 2)) |
+              ((anes_2016["Registered_Post"] == 1) | (anes_2016["Registered_Post"] == 2)), "Registered"] = 1
+
+
+anes_2016 = anes_2016[["FIPS", "Year", "Voted", "Partisan", "Registered"]]
+
+percents_2016 = anes_2016.groupby(["Year", "FIPS"], as_index=False)[["Voted", "Partisan", "Registered"]].mean()
+turn_calc_2016 = anes_2016.groupby(["Year", "FIPS"], as_index=False)[["Voted", "Registered"]].sum()
+turn_calc_2016["Registered_Turnout"] = turn_calc_2016["Voted"]/turn_calc_2016["Registered"]
+anes_2016 = percents_2016.merge(turn_calc_2016[["Year", "FIPS", "Registered_Turnout"]], on=["Year", "FIPS"], how="inner")
+anes_2016 = anes_2016.merge(fips, on=["FIPS"], how="left")
+anes_2016 = anes_2016[["Year", "State", "Partisan", "Voted", "Registered", "Registered_Turnout"]]
+
+anes_final = anes_final.append(anes_2016)
+
+# print(anes_final["Year"].value_counts())
 
 
 
@@ -122,10 +151,63 @@ gaps = gaps.merge(anes_final, how="left", on=["State", "Year"])
 gaps = gaps.merge(urban, how="left", on=["State", "Year"])
 gaps = gaps.merge(pres_party, how="left", on=["Year"])
 gaps = gaps.merge(gov_party, how="left", left_on=["State", "Year"], right_on=["state", "year"])
-print(gaps.dropna())
-1/0
+gaps.to_csv("federal_synth.csv")
+gaps.dropna(inplace=True)
+
+gaps["gap"] = gaps["gap"].abs()
+
+test = pd.DataFrame([tuple([x, ]) for x in range(1976, 2017, 2)], columns=["Year"])
+
+test = test.merge(gaps, how="left", on="Year")
+
+test.to_csv("test.csv")
+
+gaps.to_csv("federal_synth.csv")
 
 
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("state")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 0
+
+
+unemp_1976 = pd.read_excel("/home/matt/GitRepos/ElectionData/data/LAUS_Unemp_1976-1994.xlsx", "BLS Data Series", skiprows=3)
+unemp_1995 = pd.read_excel("/home/matt/GitRepos/ElectionData/data/LAUS_Unemp_1995-2013.xlsx", "BLS Data Series", skiprows=3)
+unemp_2014 = pd.read_excel("/home/matt/GitRepos/ElectionData/data/LAUS_Unemp_2014-2018.xlsx", "BLS Data Series", skiprows=3)
+unemp_2014.dropna(axis=1, inplace=True)
+
+unemp_1976 = unemp_1976.filter(regex="Annual|Series")
+unemp_1995 = unemp_1995.filter(regex="Annual|Series")
+unemp_2014 = unemp_2014.filter(regex="Annual|Series")
+
+unemp = unemp_1976.merge(unemp_1995, on="Series ID", how="inner")
+unemp = unemp.merge(unemp_2014, on="Series ID", how="inner")
+
+unemp.columns = unemp.columns.str.replace(r"\s", "")
+
+unemp["FIPS"] = unemp["SeriesID"].str[5:7]
+
+unemp = unemp.merge(fips, on="FIPS", how="inner")
+
+unemp.drop(["FIPS", "StateAbbr", "SeriesID"], inplace=True, axis=1)
+
+unemp = unemp.melt(id_vars=["State"], var_name="Year", value_name="UnempRate")
+
+unemp["Year"] = unemp["Year"].str.replace("Annual", "").astype(int)
+
+gaps = gaps.merge(unemp, how="left", on=["State", "Year"])
+gaps = gaps.merge(anes_final, how="left", on=["State", "Year"])
+gaps = gaps.merge(urban, how="left", on=["State", "Year"])
+gaps = gaps.merge(pres_party, how="left", on=["Year"])
+gaps = gaps.merge(gov_party, how="left", left_on=["State", "Year"], right_on=["state", "year"])
+gaps.dropna(inplace=True)
+gaps["gap"] = gaps["gap"].abs()
+
+gaps.to_csv("state_synth.csv")
 
 
 
@@ -196,8 +278,10 @@ starts["time"] = 1
 
 gaps = get_efficiency_gap("federal")[['State', 'Year', 'gap']]
 
-gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 1
-gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 0
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]),
+         "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]),
+         "independent_commission"] = 0
 
 for i, r in starts.iterrows():
 
@@ -238,3 +322,237 @@ gaps["gap"] = gaps["gap"].abs()
 model = PanelOLS.from_formula('gap ~ 1 + indcom_4 + indcom_2 + indcom + indcom2 + indcom4 + indcom6', data=gaps)
 
 print(model.fit(cov_type="robust"))
+
+
+##################
+###DIFF-IN-DIFF###
+##################
+
+
+#############
+###FEDERAL###
+#############
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("federal")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 0
+
+gaps.loc[gaps.Year < 1990, "Post"] = 0
+gaps.loc[gaps.Year >= 1990, "Post"] = 1
+
+gaps["Interact"] = gaps.Post * gaps["independent_commission"]
+
+
+gaps = gaps.loc[gaps.State.isin(["Washington", "Oregon"])]
+
+y = gaps["gap"].abs()
+X = gaps.drop(["gap", "Year", "State"], axis=1)
+
+X_cons = sm.add_constant(X)
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3")
+
+print(lm.summary())
+
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("Federal")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 0
+
+gaps.loc[gaps.Year < 2002, "Post"] = 0
+gaps.loc[gaps.Year >= 2002, "Post"] = 1
+
+gaps["Interact"] = gaps.Post * gaps["independent_commission"]
+
+
+gaps = gaps.loc[gaps.State.isin(["Arizona", "Texas"])]
+
+y = gaps["gap"].abs()#.as_matrix()
+X = gaps.drop(["gap", "Year", "State"], axis=1)#.as_matrix()
+
+X_cons = sm.add_constant(X)
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+print(lm.summary())
+
+
+#############
+####STATE####
+#############
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("state")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 0
+
+gaps.loc[gaps.Year < 1990, "Post"] = 0
+gaps.loc[gaps.Year >= 1990, "Post"] = 1
+
+gaps["Interact"] = gaps.Post * gaps["independent_commission"]
+
+
+gaps = gaps.loc[gaps.State.isin(["Washington", "Oregon"])]
+
+y = gaps["gap"].abs()
+X = gaps.drop(["gap", "Year", "State"], axis=1)
+
+X_cons = sm.add_constant(X)
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3")
+
+print(lm.summary())
+
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("state")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 0
+
+gaps.loc[gaps.Year < 2002, "Post"] = 0
+gaps.loc[gaps.Year >= 2002, "Post"] = 1
+
+gaps["Interact"] = gaps.Post * gaps["independent_commission"]
+
+
+gaps = gaps.loc[gaps.State.isin(["Arizona", "Texas"])]
+
+y = gaps["gap"].abs()#.as_matrix()
+X = gaps.drop(["gap", "Year", "State"], axis=1)#.as_matrix()
+
+X_cons = sm.add_constant(X)
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+print(lm.summary())
+
+
+
+#################
+####BASIC OLS####
+#################
+
+
+#############
+###FEDERAL###
+#############
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("federal")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa"]), "independent_commission"] = 0
+
+y = gaps["gap"].abs()
+X = gaps.drop(["gap", "Year", "State"], axis=1)
+
+X_cons = sm.add_constant(X)
+
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+print(lm.summary())
+
+
+#############
+####STATE####
+#############
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("state")[['State', 'Year', 'gap']]
+
+gaps.loc[gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 1
+gaps.loc[~gaps.State.isin(["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]), "independent_commission"] = 0
+
+y = gaps["gap"].abs()
+X = gaps.drop(["gap", "Year", "State"], axis=1)
+
+X_cons = sm.add_constant(X)
+
+lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+print(lm.summary())
+
+
+####################
+####SEPARATE OLS####
+####################
+
+
+#############
+###FEDERAL###
+#############
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("federal")[['State', 'Year', 'gap']]
+
+for s in ["Arizona", "California", "Idaho", "Washington", "Iowa"]:
+
+    start_year = starts.loc[starts.State == s, "Year"].values[0]
+
+    state = gaps.loc[(gaps.State == s)]
+    state.loc[state.Year >= start_year, "Post"] = 1
+    state.loc[state.Year < start_year, "Post"] = 0
+
+    y = state["gap"].abs()
+    X = state.drop(["gap", "Year", "State"], axis=1)
+
+    X_cons = sm.add_constant(X)
+
+    lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+    print(s)
+
+    print(lm.summary())
+
+
+
+#############
+####STATE####
+#############
+
+
+starts = pd.read_excel("/home/matt/GitRepos/ElectionData/data/Independent_Commission_Start.xlsx", "Sheet1", skip_footer=2)
+starts["time"] = 1
+
+gaps = get_efficiency_gap("state")[['State', 'Year', 'gap']]
+
+for s in ["Arizona", "California", "Idaho", "Washington", "Iowa", "Montana", "Alaska"]:
+
+    start_year = starts.loc[starts.State == s, "Year"].values[0]
+
+    state = gaps.loc[(gaps.State == s)]
+    state.loc[state.Year >= start_year, "Post"] = 1
+    state.loc[state.Year < start_year, "Post"] = 0
+
+    y = state["gap"].abs()
+    X = state.drop(["gap", "Year", "State"], axis=1)
+
+    X_cons = sm.add_constant(X)
+
+    lm = sm.OLS(y, X_cons).fit(cov_type="HC3", use_t=True)
+
+    print(s)
+
+    print(lm.summary())
